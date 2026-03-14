@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>我的撲克訓練器 V2.2 (RNG升級版)</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f6f9; }
+        .top-container { display: flex; gap: 30px; margin-bottom: 30px; align-items: flex-start; }
+        .game-section {
+            background-color: #e9ecef; border-radius: 12px; padding: 30px 40px; border: 2px solid #ccc;
+            display: flex; flex-direction: column; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.1); min-width: 420px;
+        }
+        .stats-section { display: flex; flex-direction: column; gap: 20px; min-width: 280px; }
+        .scoreboard { background-color: #fff; padding: 25px; border-radius: 12px; border: 2px solid #0056b3; text-align: center; }
+        
+        .error-log-box {
+            background-color: #fff; padding: 15px; border-radius: 12px; border: 1px solid #ffcccc;
+            font-size: 13px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); max-height: 180px; overflow-y: auto;
+            display: none;
+        }
+        .error-log-title { font-weight: bold; margin-bottom: 8px; color: #d9534f; border-bottom: 1px solid #fee; padding-bottom: 5px; }
+        .error-item { border-bottom: 1px dashed #eee; padding: 5px 0; color: #555; line-height: 1.4; }
+        .error-item .hand-text { font-weight: bold; color: #111; font-size: 14px; }
+        .error-item .correct-text { color: #2b8a3e; font-weight: bold; }
+
+        .settings-box {
+            background-color: #fff; padding: 15px; border-radius: 12px; border: 1px solid #ccc;
+            font-size: 14px; box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .settings-title { font-weight: bold; margin-bottom: 10px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .checkbox-item { display: flex; align-items: center; gap: 4px; background: #f1f3f5; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        
+        .poker-table {
+            position: relative; width: 280px; height: 140px; background-color: #2b8a3e; border: 14px solid #5c3a21; 
+            border-radius: 140px / 70px; margin-top: 10px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 10px 15px rgba(0,0,0,0.3);
+        }
+        .seat {
+            position: absolute; width: 42px; height: 42px; background-color: #444; color: #ccc; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; border: 2px solid #777;
+            transform: translate(-50%, -50%); transition: all 0.3s ease; z-index: 5;
+        }
+        
+        .dealer-button {
+            position: absolute; width: 20px; height: 20px; background-color: #ffeb3b; color: #333; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;
+            border: 2px solid #5c3a21; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 6;
+            transform: translate(-50%, -50%);
+            top: 90%; left: 12%; 
+        }
+
+        .chip {
+            position: absolute; background-color: #e0e0e0; border: 2px dashed #999; border-radius: 12px;
+            padding: 2px 6px; font-size: 10px; font-weight: bold; color: #333; transform: translate(-50%, -50%); z-index: 4;
+        }
+        #chip-bb { top: 26%; left: 50%; } 
+        #chip-sb { top: 35%; left: 16%; }
+
+        #seat-BB { top: 0%; left: 50%; }
+        #seat-UTG { top: 20%; left: 95%; }
+        #seat-HJ { top: 80%; left: 95%; }
+        #seat-CO { top: 100%; left: 50%; }
+        #seat-BTN { top: 80%; left: 5%; }
+        #seat-SB { top: 20%; left: 5%; }
+        
+        .seat.hero { background-color: #ff4d4d; color: white; border-color: #ffeb3b; transform: translate(-50%, -50%) scale(1.2); z-index: 10; }
+        .seat.villain { background-color: #f59f00; color: white; border-color: #fff; z-index: 5; }
+        
+        .rng-box { font-size: 20px; font-weight: bold; color: #e60000; margin-top: 15px; background: #fff; padding: 4px 12px; border-radius: 8px; border: 2px solid #ccc; letter-spacing: 1px; }
+        .hand-display-large { font-size: 64px; font-weight: bold; color: #212529; letter-spacing: 4px; margin: 15px 0; }
+        
+        .action-buttons { display: flex; justify-content: center; gap: 8px; width: 100%; flex-wrap: wrap; }
+        .action-btn { font-size: 13px; padding: 12px 0; width: 78px; border-radius: 8px; cursor: pointer; font-weight: bold; border: 1px solid #444; transition: transform 0.1s; }
+        .action-btn:active { transform: scale(0.95); } 
+        
+        .open-btn { background-color: #e60000; color: white; }
+        .mix-rc-btn { background: linear-gradient(135deg, #e60000 50%, #2b8a3e 50%); color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .call-btn { background-color: #51cf66; color: #111; }
+        .mix-rf-btn { background: linear-gradient(135deg, #e60000 50%, #4a6fa5 50%); color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .fold-btn { background-color: #4a6fa5; color: white; }
+        
+        #feedback-msg { font-size: 24px; font-weight: bold; margin-top: 20px; height: 35px; }
+        .divider { border-top: 2px dashed #bbb; margin: 30px 0; width: max-content; min-width: 540px; }
+        
+        .range-btn { padding: 6px 12px; font-size: 13px; cursor: pointer; margin-right: 4px; border: 1px solid #ccc; background-color: #f8f9fa; border-radius: 4px; margin-bottom: 4px; }
+        .range-btn.active { background-color: #0056b3; color: white; border-color: #004494; font-weight: bold; }
+
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: repeat(13, 38px); 
+            gap: 2px; 
+            background-color: #333; 
+            padding: 8px; 
+            border-radius: 8px; 
+            width: max-content; 
+        }
+        .cell { 
+            width: 38px; 
+            height: 38px; 
+            background-color: #4a6fa5; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 11px; 
+            color: rgba(255,255,255,0.6); 
+            box-sizing: border-box;
+        }
+        
+        .raise { background-color: #e60000; color: white; font-weight: bold; } 
+        .raise-mixed { background: linear-gradient(135deg, #e60000 50%, #4a6fa5 50%); color: white !important; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); } 
+        .raise-call { background: linear-gradient(135deg, #e60000 50%, #2b8a3e 50%); color: white !important; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .call { background-color: #51cf66; color: #111; font-weight: bold; } 
+
+        .border-right-thick { border-right: 3px solid rgba(255,255,255,0.4) !important; }
+        .border-bottom-thick { border-bottom: 3px solid rgba(255,255,255,0.4) !important; }
+        
+        .range-stats { margin-top: 15px; font-size: 14px; font-weight: bold; background-color: #fff; padding: 10px 15px; border-radius: 8px; border: 1px solid #ccc; width: max-content; display: flex; gap: 15px; }
+        .stat-raise { color: #e60000; } 
+        .stat-mixed-rc { color: #8c5d00; } 
+        .stat-mixed-rf { color: #6f42c1; } 
+        .stat-call { color: #2b8a3e; } 
+        .stat-fold { color: #3b5984; }
+        .controls-row { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h2>我的 Poker Preflop 訓練器 (V2.2 終極版)</h2>
+    <div class="top-container">
+        <div class="game-section">
+            <h3 id="table-title">UTG</h3>
+            <div class="poker-table">
+                <div class="chip" id="chip-sb">0.5 BB</div>
+                <div class="chip" id="chip-bb">1 BB</div>
+                <div class="seat" id="seat-SB">SB</div><div class="seat" id="seat-BB">BB</div>
+                <div class="seat" id="seat-UTG">UTG</div><div class="seat" id="seat-HJ">HJ</div>
+                <div class="seat" id="seat-CO">CO</div><div class="seat" id="seat-BTN">BTN</div>
+                <div class="dealer-button">D</div>
+            </div>
+            
+            <div id="rng-display" class="rng-box">RNG: --</div>
+            <div id="table-hand-display" class="hand-display-large">? ?</div>
+            
+            <div class="action-buttons">
+                <button class="action-btn open-btn" onclick="checkAnswer('Raise')">Raise</button>
+                <button class="action-btn mix-rc-btn" onclick="checkAnswer('Mix_RC')">Mix R/C</button>
+                <button class="action-btn call-btn" onclick="checkAnswer('Call')">Call</button>
+                <button class="action-btn mix-rf-btn" onclick="checkAnswer('Mix_RF')">Mix R/F</button>
+                <button class="action-btn fold-btn" onclick="checkAnswer('Fold')">Fold</button>
+            </div>
+            <p id="feedback-msg"></p>
+        </div>
+
+        <div class="stats-section">
+            <div class="scoreboard">
+                <div>🎯 答對題數: <span id="score-display">0</span> / <span id="total-display">0</span></div>
+                <div style="font-size: 42px; color: #2b8a3e;"><span id="accuracy-display">0</span>%</div>
+                <button class="range-btn" onclick="resetScore()" style="width: 100%;">重新計算</button>
+            </div>
+
+            <div class="error-log-box" id="error-log-box">
+                <div class="error-log-title">📝 錯題紀錄本</div>
+                <div id="error-log-content"></div>
+            </div>
+
+            <div class="settings-box">
+                <div class="settings-title">⚙️ 練習範圍設定</div>
+                <div style="font-size: 11px; color: #666;">我的開池 (RFI)：</div>
+                <div class="checkbox-group" id="check-group-rfi"></div>
+                
+                <div style="font-size: 11px; color: #666; margin-top:5px;">3-Bet (非 BB 位置)：</div>
+                <div class="checkbox-group" id="check-group-nonbb3bet"></div>
+                
+                <div style="font-size: 11px; color: #666; margin-top:5px;">大盲防守 (BB)：</div>
+                <div class="checkbox-group" id="check-group-bb"></div>
+                
+                <div style="display: flex; gap: 5px; margin-top: 10px;">
+                    <button onclick="toggleAllChecks(true)" style="flex:1; font-size:10px;">全選</button>
+                    <button onclick="toggleAllChecks(false)" style="flex:1; font-size:10px;">全不選</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+    <h3 id="ref-title">範圍參考表</h3>
+    <div class="controls" id="range-controls"></div>
+    <div id="poker-grid" class="grid-container"></div>
+    <div class="range-stats">
+        <div>Raise: <span id="stat-raise" class="stat-raise">0%</span></div>
+        <div>Mix(R/C): <span id="stat-mixed-rc" class="stat-mixed-rc">0%</span></div>
+        <div>Mix(R/F): <span id="stat-mixed-rf" class="stat-mixed-rf">0%</span></div>
+        <div>Call: <span id="stat-call" class="stat-call">0%</span></div>
+        <div>Fold: <span id="stat-fold" class="stat-fold">0%</span></div>
+    </div>
+
+    <script>
+        const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
+        const rfiPos = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
+        const nonBb3BetPos = [
+            'HJ_vs_UTG', 'CO_vs_UTG', 'CO_vs_HJ', 'BTN_vs_UTG', 'BTN_vs_HJ', 
+            'BTN_vs_CO', 'SB_vs_UTG', 'SB_vs_HJ', 'SB_vs_CO', 'SB_vs_BTN'
+        ]; 
+        const bbPos = ['BB_UTG', 'BB_HJ', 'BB_CO', 'BB_BTN', 'BB_SB'];
+
+        function parseThreshold(sStr, oStr, pStr) {
+            let hands = [];
+            if (!sStr) sStr = ""; if (!oStr) oStr = "";
+            const s = sStr.replace(/\s/g, '');
+            const o = oStr.replace(/\s/g, '');
+            const p = pStr ? pStr.replace(/\s/g, '') : "";
+            for (let i = 0; i < s.length; i++) {
+                let high = ranks[i], thresholdIdx = ranks.indexOf(s[i]);
+                for (let j = i + 1; j <= thresholdIdx; j++) hands.push(high + ranks[j] + 's');
+            }
+            for (let i = 0; i < o.length; i++) {
+                let high = ranks[i], thresholdIdx = ranks.indexOf(o[i]);
+                for (let j = i + 1; j <= thresholdIdx; j++) hands.push(high + ranks[j] + 'o');
+            }
+            if (p) {
+                let thresholdIdx = ranks.indexOf(p[0]);
+                for (let i = 0; i <= thresholdIdx; i++) hands.push(ranks[i] + ranks[i]);
+            }
+            return hands;
+        }
+
+        const ranges = {
+            // RFI
+            'UTG': { raise: parseThreshold('279T9', 'TJ', '66'), mixed: [], raise_call: [], call: [] },
+            'HJ': { raise: parseThreshold('259988', '9TJ', '55'), mixed: [], raise_call: [], call: [] },
+            'CO': { raise: parseThreshold('24687776', '8TTT', '44'), mixed: [], raise_call: [], call: [] },
+            'BTN': { raise: parseThreshold('2235666544', '48999', '22'), mixed: [], raise_call: [], call: [] },
+            'SB': { raise: parseThreshold('2224665544', '38999', '22'), mixed: [], raise_call: [], call: [] },
+            
+            // 3-Bet Non-BB Matrices
+            "HJ_vs_UTG": {
+                raise: ["AA", "AKs", "AQs", "AJs", "ATs", "A5s", "A4s", "AKo", "KK", "KQs", "KJs", "KTs", "QQ", "JJ", "TT"],
+                mixed: ["A9s", "A8s", "A7s", "A3s", "K9s", "AQo", "KQo", "QJs", "99", "88", "87s", "77", "76s", "65s"],
+                call: []
+            },
+            "CO_vs_UTG": {
+                raise: ["AA", "AKs", "AQs", "AJs", "ATs", "A5s", "A4s", "AKo", "KK", "KQs", "KJs", "KTs", "AQo", "QQ", "QJs", "JJ", "TT"],
+                mixed: ["A9s", "A8s", "A7s", "A6s", "A3s", "KQo", "JTs", "T9s", "99", "88", "87s", "77", "76s", "65s", "54s"],
+                call: []
+            },
+            "CO_vs_HJ": {
+                raise: ["AA", "AKs", "AQs", "AJs", "ATs", "A5s", "A4s", "A3s", "AKo", "KK", "KQs", "KJs", "KTs", "AQo", "KQo", "QQ", "QJs", "JJ", "TT", "99"],
+                mixed: ["A9s", "A8s", "A7s", "A6s", "K5s", "QTs", "JTs", "T9s", "88", "87s", "77", "76s", "66", "65s", "54s"],
+                call: []
+            },
+            "BTN_vs_UTG": {
+                raise: ["AA", "AKs", "A7s", "KK", "K9s"],
+                mixed: ["A6s"],
+                call: ["AQs", "AJs", "ATs", "A9s", "A8s", "A5s", "A4s", "A3s", "AKo", "KQs", "KJs", "KTs", "AQo", "KQo", "QQ", "QJs", "QTs", "JJ", "JTs", "TT", "T9s", "99", "88", "77", "76s", "66", "65s", "54s"]
+            },
+            "BTN_vs_HJ": {
+                raise: ["AA", "AKs", "A6s", "A2s", "AKo", "KK"],
+                mixed: ["K6s"],
+                call: ["AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A5s", "A4s", "A3s", "KQs", "KJs", "KTs", "K9s", "AQo", "KQo", "QQ", "QJs", "QTs", "AJo", "JJ", "JTs", "TT", "T9s", "99", "88", "77", "66", "65s", "55", "54s"]
+            },
+            "BTN_vs_CO": {
+                raise: ["AA", "AKs", "A7s", "A6s", "A3s", "A2s", "AKo", "KK", "QQ", "Q9s"],
+                mixed: ["K5s", "KJo", "QJo", "ATo", "65s", "54s"],
+                call: ["AQs", "AJs", "ATs", "A9s", "A8s", "A5s", "A4s", "KQs", "KJs", "KTs", "K9s", "AQo", "KQo", "QJs", "QTs", "AJo", "JJ", "JTs", "T9s", "99", "88", "77", "66"]
+            },
+            "SB_vs_UTG": {
+                raise: ["AA", "AKs", "AQs", "AJs", "ATs", "A5s", "A4s", "AKo", "KK", "KQs", "KJs", "KTs", "QQ", "JJ", "TT"],
+                mixed: ["A8s", "A3s", "AQo", "QJs", "99", "88", "87s", "77", "76s", "66", "65s"],
+                call: []
+            },
+            "SB_vs_HJ": {
+                raise: ["AA", "AKs", "AQs", "AJs", "ATs", "A5s", "A4s", "AKo", "KK", "KQs", "KJs", "KTs", "QQ", "QJs", "JJ", "TT"],
+                mixed: ["A9s", "A8s", "A7s", "A6s", "A3s", "AQo", "KQo", "QTs", "JTs", "99", "88", "87s", "77", "76s", "66", "65s", "54s"],
+                call: []
+            },
+            "SB_vs_CO": {
+                raise: ["AA", "AKs", "AQs", "AJs", "ATs", "A5s", "A4s", "AKo", "KK", "KQs", "KJs", "KTs", "QQ", "QJs", "JJ", "TT"],
+                mixed: ["A9s", "A8s", "A7s", "A6s", "A3s", "K7s", "AQo", "KQo", "QTs", "JTs", "99", "88", "77", "76s", "66", "65s", "54s"],
+                call: []
+            },
+            "SB_vs_BTN": {
+                raise: ["AA", "AKs", "AQs", "AJs", "ATs", "A5s", "A4s", "AKo", "KK", "KQs", "KJs", "KTs", "AQo", "QQ", "QJs", "QTs", "JJ", "JTs", "TT", "99"],
+                mixed: ["A9s", "A8s", "A7s", "A6s", "A3s", "KQo", "88", "77", "76s", "66", "65s", "55", "54s"],
+                call: []
+            },
+
+            // BB Defense
+            'BB_UTG': { 
+                raise: ['AA', 'AKs', 'KK'], mixed: [], raise_call: ['QJs', 'KTs', 'QTs', 'JTs'], 
+                call: parseThreshold('223665443222', '9TTT', '22') 
+            },
+            'BB_HJ': { 
+                raise: ['AA', 'KK', 'AKs'], mixed: [], raise_call: ['KQs', 'QJs', 'JTs', 'T9s', '87s', '76s', '65s', '54s', 'A3s'], 
+                call: parseThreshold('222365443222', '8TTT', '22') 
+            },
+            'BB_CO': { 
+                raise: ['AA', 'KK', 'AKs'], mixed: [], raise_call: ['AQs', 'KQs', 'QQ', 'QJs', 'JTs', 'J9s', 'Q9s', 'T9s', 'T8s', '87s', '76s', '65s', '54s'], 
+                call: parseThreshold('222245433222', '4999', '22') 
+            },
+            'BB_BTN': { 
+                raise: ['AA', 'KK', 'AKs', 'AKo', 'AQs', 'QQ'], mixed: [], raise_call: ['QJs', 'JJ', 'JTs', 'J9s', 'T9s', 'Q8s', 'J8s', 'T8s', 'T7s', '97s', '87s', '76s', '65s', '54s', 'A5s'], 
+                call: parseThreshold('222222432222', '258888', '22') 
+            },
+            'BB_SB': { 
+                raise: ['AA', 'KK', 'AKs', 'AKo', 'AQs', 'AJs', 'KQs', 'KJs', 'KTs', 'QQ', 'AQo', 'QJs', 'QTs', 'JJ', 'JTs', 'J9s', 'TT', 'T9s', 'T8s', '98s', '87s', '76s', '65s', '54s', 'A5s', 'A4s', 'A3o', 'A5o'], mixed: [], raise_call: ['KQo', 'ATs', 'K9s', '99', 'A4o', 'A2o', 'A2s', 'J2s', '66', '53s', '43s', 'A7s'], 
+                call: parseThreshold('22225654322', '39999', '22') 
+            }
+        };
+
+        function initUI() {
+            const rfiRow = document.createElement('div'); rfiRow.className = 'controls-row'; rfiRow.innerHTML = '<b>Open: </b>';
+            rfiPos.forEach(p => {
+                document.getElementById('check-group-rfi').innerHTML += `<label class="checkbox-item"><input type="checkbox" class="pos-check" value="${p}" checked>${p}</label>`;
+                rfiRow.innerHTML += `<button class="range-btn" id="btn-${p}" onclick="changeReferenceRange('${p}')">${p}</button>`;
+            });
+
+            const nonBb3BetRow = document.createElement('div'); nonBb3BetRow.className = 'controls-row'; nonBb3BetRow.innerHTML = '<b>3-Bet (非 BB): </b>';
+            nonBb3BetPos.forEach(p => {
+                let label = p.replace('_vs_', ' vs ');
+                document.getElementById('check-group-nonbb3bet').innerHTML += `<label class="checkbox-item"><input type="checkbox" class="pos-check" value="${p}" checked>${label}</label>`;
+                nonBb3BetRow.innerHTML += `<button class="range-btn" id="btn-${p}" onclick="changeReferenceRange('${p}')">${label}</button>`;
+            });
+
+            const bbRow = document.createElement('div'); bbRow.className = 'controls-row'; bbRow.innerHTML = '<b>BB Defense: </b>';
+            bbPos.forEach(p => {
+                const label = p.split('_')[1];
+                document.getElementById('check-group-bb').innerHTML += `<label class="checkbox-item"><input type="checkbox" class="pos-check" value="${p}" checked>${label}</label>`;
+                bbRow.innerHTML += `<button class="range-btn" id="btn-${p}" onclick="changeReferenceRange('${p}')">vs ${label}</button>`;
+            });
+            document.getElementById('range-controls').append(rfiRow, nonBb3BetRow, bbRow);
+        }
+
+        let score = 0, total = 0, quizPos = 'UTG', quizHand = '', isWaiting = false;
+
+        function generateNewQuestion() {
+            isWaiting = false; document.getElementById('feedback-msg').innerText = '';
+            
+            // RNG 生成器
+            const rng = Math.floor(Math.random() * 100);
+            document.getElementById('rng-display').innerText = `RNG: ${rng}`;
+
+            const checked = Array.from(document.querySelectorAll('.pos-check:checked')).map(cb => cb.value);
+            if (!checked.length) { alert("請選位置！"); toggleAllChecks(true); return; }
+            quizPos = checked[Math.floor(Math.random() * checked.length)];
+            
+            let titleText = quizPos.replace('_vs_', ' vs ').replace('_', ' vs ');
+            document.getElementById('table-title').innerText = titleText;
+            
+            updateTableDisplay(quizPos);
+            let i = Math.floor(Math.random() * 13), j = Math.floor(Math.random() * 13);
+            quizHand = i < j ? ranks[i]+ranks[j]+'s' : (i > j ? ranks[j]+ranks[i]+'o' : ranks[i]+ranks[j]);
+            document.getElementById('table-hand-display').innerText = quizHand;
+        }
+
+        const actionDisplayNames = {
+            'Raise': 'Raise',
+            'Mix_RC': 'Raise/Call',
+            'Call': 'Call',
+            'Mix_RF': 'Raise/Fold',
+            'Fold': 'Fold'
+        };
+
+        function checkAnswer(ans) {
+            if (isWaiting) return; isWaiting = true;
+            let range = ranges[quizPos], correct = 'Fold';
+            
+            if (range.raise && range.raise.includes(quizHand)) correct = 'Raise';
+            else if (range.raise_call && range.raise_call.includes(quizHand)) correct = 'Mix_RC';
+            else if (range.mixed && range.mixed.includes(quizHand)) correct = 'Mix_RF'; 
+            else if (range.call && range.call.includes(quizHand)) correct = 'Call';
+            
+            total++;
+            if (ans === correct) {
+                score++; 
+                document.getElementById('feedback-msg').innerText = "✅"; 
+                document.getElementById('feedback-msg').style.color = "green";
+                setTimeout(generateNewQuestion, 600);
+            } else {
+                logError(quizPos, quizHand, actionDisplayNames[ans], actionDisplayNames[correct]);
+                changeReferenceRange(quizPos); 
+                document.getElementById('feedback-msg').innerText = "❌ 正確: " + actionDisplayNames[correct]; 
+                document.getElementById('feedback-msg').style.color = "red";
+                setTimeout(generateNewQuestion, 2200);
+            }
+            document.getElementById('score-display').innerText = score; document.getElementById('total-display').innerText = total;
+            document.getElementById('accuracy-display').innerText = Math.round((score/total)*100);
+        }
+
+        function logError(pos, hand, wrongAction, correctAction) {
+            const logBox = document.getElementById('error-log-box');
+            const logContent = document.getElementById('error-log-content');
+            
+            logBox.style.display = 'block';
+
+            let titleText = pos.replace('_vs_', ' vs ').replace('_', ' vs ');
+
+            const errDiv = document.createElement('div');
+            errDiv.className = 'error-item';
+            errDiv.innerHTML = `[${titleText}] <span class="hand-text">${hand}</span> : 錯選 ${wrongAction} ➔ <span class="correct-text">應 ${correctAction}</span>`;
+            
+            logContent.insertBefore(errDiv, logContent.firstChild);
+        }
+
+        function updateTableDisplay(pos) {
+            document.querySelectorAll('.seat').forEach(s => s.classList.remove('hero', 'villain'));
+            
+            if (pos.includes('_vs_')) {
+                const [hero, villain] = pos.split('_vs_');
+                const hSeat = document.getElementById('seat-' + hero); if(hSeat) hSeat.classList.add('hero');
+                const vSeat = document.getElementById('seat-' + villain); if(vSeat) vSeat.classList.add('villain');
+            }
+            else if (pos.includes('_')) {
+                const [hero, villain] = pos.split('_');
+                const hSeat = document.getElementById('seat-' + hero); if(hSeat) hSeat.classList.add('hero');
+                const vSeat = document.getElementById('seat-' + villain); if(vSeat) vSeat.classList.add('villain');
+            } else { 
+                const hSeat = document.getElementById('seat-' + pos); if(hSeat) hSeat.classList.add('hero'); 
+            }
+        }
+
+        function changeReferenceRange(pos) {
+            const grid = document.getElementById('poker-grid'); grid.innerHTML = '';
+            document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+            const b = document.getElementById('btn-' + pos); if(b) b.classList.add('active');
+            
+            let rCom = 0, mrcCom = 0, mrfCom = 0, cCom = 0;
+            
+            ranks.forEach((r1, i) => ranks.forEach((r2, j) => {
+                let h = i < j ? r1+r2+'s' : (i > j ? r2+r1+'o' : r1+r2);
+                let cell = document.createElement('div'); 
+                cell.className = 'cell'; 
+                cell.innerText = h;
+                
+                if (j === 4) cell.classList.add('border-right-thick');
+                if (i === 4) cell.classList.add('border-bottom-thick'); 
+
+                let w = (i === j) ? 6 : (i < j ? 4 : 12);
+                
+                if (ranges[pos].raise && ranges[pos].raise.includes(h)) { cell.classList.add('raise'); rCom += w; }
+                else if (ranges[pos].raise_call && ranges[pos].raise_call.includes(h)) { cell.classList.add('raise-call'); mrcCom += w; }
+                else if (ranges[pos].mixed && ranges[pos].mixed.includes(h)) { cell.classList.add('raise-mixed'); mrfCom += w; }
+                else if (ranges[pos].call && ranges[pos].call.includes(h)) { cell.classList.add('call'); cCom += w; }
+                
+                grid.appendChild(cell);
+            }));
+            
+            const rPct = ((rCom/1326)*100).toFixed(1); 
+            const mrcPct = ((mrcCom/1326)*100).toFixed(1); 
+            const mrfPct = ((mrfCom/1326)*100).toFixed(1); 
+            const cPct = ((cCom/1326)*100).toFixed(1);
+            const fPct = (100 - parseFloat(rPct) - parseFloat(mrcPct) - parseFloat(mrfPct) - parseFloat(cPct)).toFixed(1);
+            
+            document.getElementById('stat-raise').innerText = rPct + '%';
+            document.getElementById('stat-mixed-rc').innerText = mrcPct + '%';
+            document.getElementById('stat-mixed-rf').innerText = mrfPct + '%';
+            document.getElementById('stat-call').innerText = cPct + '%';
+            document.getElementById('stat-fold').innerText = fPct + '%';
+        }
+
+        function toggleAllChecks(s) { document.querySelectorAll('.pos-check').forEach(c => c.checked = s); }
+        
+        function resetScore() { 
+            score = 0; total = 0; 
+            document.getElementById('score-display').innerText = 0; 
+            document.getElementById('total-display').innerText = 0; 
+            document.getElementById('accuracy-display').innerText = 0; 
+
+            document.getElementById('error-log-content').innerHTML = '';
+            document.getElementById('error-log-box').style.display = 'none';
+        }
+
+        initUI(); changeReferenceRange('HJ_vs_UTG'); generateNewQuestion();
+    </script>
+</body>
+</html>
